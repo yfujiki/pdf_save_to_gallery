@@ -75,6 +75,19 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_web_plugins:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  image_gallery_saver:
+    dependency: "direct main"
+    description:
+      name: image_gallery_saver
+      sha256: "0aba74216a4d9b0561510cb968015d56b701ba1bd94aace26aacdd8ae5761816"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.3"
   js:
     dependency: transitive
     description:
@@ -123,6 +136,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.8.2"
+  pdf_render:
+    dependency: "direct main"
+    description:
+      name: pdf_render
+      sha256: b4a5b81af382a2270047d4191496e4efd60f19c2807f64dc9dc8f55c97b5c0d1
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
+  plugin_platform_interface:
+    dependency: transitive
+    description:
+      name: plugin_platform_interface
+      sha256: "43798d895c929056255600343db8f049921cbec94d31ec87f1dc5c16c01935dd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.5"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -186,3 +215,4 @@ packages:
     version: "2.1.4"
 sdks:
   dart: ">=2.19.6 <3.0.0"
+  flutter: ">=1.20.0"
