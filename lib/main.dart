@@ -117,8 +117,9 @@ void savePdfToGallery() async {
         await pageImage.toByteData(format: ui.ImageByteFormat.png);
 
     if (imageBytes != null) {
-      final result =
-          await ImageGallerySaver.saveImage(imageBytes.buffer.asUint8List());
+      final result = await ImageGallerySaver.saveImage(
+          imageBytes.buffer.asUint8List(),
+          name: 'page_${i}_${DateTime.now().millisecondsSinceEpoch}');
       // ignore: unnecessary_brace_in_string_interps
       debugPrint("${result}");
     }
