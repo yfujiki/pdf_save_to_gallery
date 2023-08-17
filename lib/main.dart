@@ -1,4 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf_render/pdf_render.dart';
+import 'package:http/http.dart' as http;
+import 'dart:ui' as ui;
 
 void main() {
   runApp(const MyApp());
@@ -78,38 +86,55 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        child: ElevatedButton(
+          onPressed: () {
+            savePdfToGallery();
+          },
+          child: const Text('Save PDF to gallery'),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
+}
+
+void savePdfToGallery() async {
+  const pdfUrl = 'https://www.pref.kyoto.jp/kenkoshishin/documents/no_1.pdf';
+
+  // Fetch the PDF from the URL.
+  final pdfResponse = await http.get(Uri.parse(pdfUrl));
+  final pdfPath = await tempPdfPath();
+  final pdfFile = File(pdfPath);
+  pdfFile.writeAsBytesSync(pdfResponse.bodyBytes);
+
+  PdfDocument doc = await PdfDocument.openFile(pdfPath);
+  debugPrint(doc.pageCount.toString());
+
+  for (int i = 1; i <= doc.pageCount; i++) {
+    PdfPage page = await doc.getPage(i);
+    PdfPageImage pagePdfImage = await page.render();
+    ui.Image pageImage = await pagePdfImage.createImageDetached();
+    ByteData? imageBytes =
+        await pageImage.toByteData(format: ui.ImageByteFormat.png);
+
+    if (imageBytes != null) {
+      final result =
+          await ImageGallerySaver.saveImage(imageBytes.buffer.asUint8List());
+      // ignore: unnecessary_brace_in_string_interps
+      debugPrint("${result}");
+    }
+  }
+  pdfFile.delete();
+}
+
+Future<String> tempPdfPath() async {
+  Directory tempDir = await getTemporaryDirectory();
+  final dirExists = await tempDir.exists();
+
+  if (!dirExists) {
+    await tempDir.create();
+  }
+
+  String tempPath = tempDir.path;
+
+  return '$tempPath/my-pdf.pdf';
 }
