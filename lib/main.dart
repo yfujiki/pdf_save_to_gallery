@@ -8,6 +8,8 @@ import 'package:pdf_render/pdf_render.dart';
 import 'package:http/http.dart' as http;
 import 'dart:ui' as ui;
 
+import 'package:pdf_render/pdf_render_widgets.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -32,7 +34,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'PDF Save to Gallery'),
     );
   }
 }
@@ -56,6 +58,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  PdfDocument? pdfDocument;
+  File? pdfFile;
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -69,60 +74,105 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: [
+          IconButton(
+              onPressed: () {
+                savePdfToGallery();
+              },
+              icon: const Icon(Icons.save))
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: ElevatedButton(
-          onPressed: () {
-            savePdfToGallery();
-          },
-          child: const Text('Save PDF to gallery'),
-        ),
+      body: FutureBuilder(
+        future: loadPdf(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            pdfDocument = snapshot.data as PdfDocument;
+            return PdfViewer(doc: pdfDocument!);
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text(snapshot.error.toString()),
+            );
+          } else {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+        },
       ),
     );
   }
-}
 
-void savePdfToGallery() async {
-  const pdfUrl = 'https://www.irs.gov/pub/irs-pdf/fw4.pdf';
+  @override
+  void dispose() {
+    pdfFile?.delete();
+    super.dispose();
+  }
 
-  // Fetch the PDF from the URL.
-  final pdfResponse = await http.get(Uri.parse(pdfUrl));
-  final pdfPath = await tempPdfPath();
-  final pdfFile = File(pdfPath);
-  pdfFile.writeAsBytesSync(pdfResponse.bodyBytes);
+  Future<String> tempPdfPath() async {
+    Directory tempDir = await getTemporaryDirectory();
+    final dirExists = await tempDir.exists();
 
-  PdfDocument doc = await PdfDocument.openFile(pdfPath);
-  debugPrint(doc.pageCount.toString());
+    if (!dirExists) {
+      await tempDir.create();
+    }
 
-  for (int i = 1; i <= doc.pageCount; i++) {
-    PdfPage page = await doc.getPage(i);
-    PdfPageImage pagePdfImage = await page.render();
-    ui.Image pageImage = await pagePdfImage.createImageDetached();
-    ByteData? imageBytes =
-        await pageImage.toByteData(format: ui.ImageByteFormat.png);
+    String tempPath = tempDir.path;
 
-    if (imageBytes != null) {
-      final result = await ImageGallerySaver.saveImage(
-          imageBytes.buffer.asUint8List(),
-          name: 'page_${i}_${DateTime.now().millisecondsSinceEpoch}');
-      // ignore: unnecessary_brace_in_string_interps
-      debugPrint("${result}");
+    return '$tempPath/my-pdf.pdf';
+  }
+
+  Future<PdfDocument> loadPdf() async {
+    const pdfUrl = 'https://www.irs.gov/pub/irs-pdf/fw4.pdf';
+
+    // Fetch the PDF from the URL.
+    final pdfResponse = await http.get(Uri.parse(pdfUrl));
+    final pdfPath = await tempPdfPath();
+    pdfFile = File(pdfPath);
+    pdfFile?.writeAsBytesSync(pdfResponse.bodyBytes);
+
+    pdfDocument = await PdfDocument.openFile(pdfPath);
+
+    if (pdfDocument == null) {
+      throw Exception('Unable to open PDF');
+    }
+
+    return pdfDocument!;
+  }
+
+  void savePdfToGallery() async {
+    if (pdfDocument == null) {
+      debugPrint('No PDF loaded yet');
+      return;
+    }
+
+    debugPrint(pdfDocument!.pageCount.toString());
+
+    for (int i = 1; i <= pdfDocument!.pageCount; i++) {
+      PdfPage page = await pdfDocument!.getPage(i);
+      debugPrint('Page $i size: ${page.width} x ${page.height}');
+
+      // Converting PDF points into pixels for printing.
+      // https://www.gdpicture.com/guides/gdpicture/About%20a%20PDF%20format.html#:~:text=In%20PDF%20documents%2C%20everything%20is,for%20DIN%20A4%20page%20size.
+      //  1 point = 1/72 inch
+      //  72 points per inch
+      // https://printninja.com/printing-resource-center/printninja-file-setup-checklist/offset-printing-guidelines/recommended-resolution/
+      // 300 dpi = 300 pixels per inch
+      final width = (page.width * 300 / 72).ceil();
+      final height = (page.height * 300 / 72).ceil();
+      PdfPageImage pagePdfImage = await page.render(
+          width: width, height: height, allowAntialiasingIOS: true);
+      ui.Image pageImage = await pagePdfImage.createImageDetached();
+      ByteData? imageBytes =
+          await pageImage.toByteData(format: ui.ImageByteFormat.png);
+
+      if (imageBytes != null) {
+        final result = await ImageGallerySaver.saveImage(
+            imageBytes.buffer.asUint8List(),
+            quality: 100,
+            name: 'page_${i}_${DateTime.now().millisecondsSinceEpoch}');
+        // ignore: unnecessary_brace_in_string_interps
+        debugPrint("${result}");
+      }
     }
   }
-  pdfFile.delete();
-}
-
-Future<String> tempPdfPath() async {
-  Directory tempDir = await getTemporaryDirectory();
-  final dirExists = await tempDir.exists();
-
-  if (!dirExists) {
-    await tempDir.create();
-  }
-
-  String tempPath = tempDir.path;
-
-  return '$tempPath/my-pdf.pdf';
 }
