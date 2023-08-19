@@ -85,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 void savePdfToGallery() async {
-  const pdfUrl = 'https://www.pref.kyoto.jp/kenkoshishin/documents/no_1.pdf';
+  const pdfUrl = 'https://www.irs.gov/pub/irs-pdf/fw4.pdf';
 
   // Fetch the PDF from the URL.
   final pdfResponse = await http.get(Uri.parse(pdfUrl));
